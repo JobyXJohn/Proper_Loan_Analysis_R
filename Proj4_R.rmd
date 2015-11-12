@@ -1,0 +1,113 @@
+---
+output:
+  pdf_document:
+    fig_caption: yes
+    fig_height: 10
+    fig_width: 16
+    highlight: tango
+    keep_tex: yes
+    toc: yes
+  html_document:
+    toc: yes
+  word_document: default
+---
+---
+title: 'Project 4: Prosper Loan Data'
+author: "Joby John"
+date: "November 10, 2015"
+output: md_document
+header-includes:
+   - \usepackage{amsmath}
+fontsize: 10pt
+---
+## Introduction
+
+This dataset involves the loan data from Prosper Loans. The aim is conduct an Exploratory Data Analysis (EDA) of this dataset and find hidden relationships and important features that affect the lender and the borrower. Going through the description of the features one can get a good idea of the lender-borrower relationship. The lender wants to maximize his returns or yield from the Borrower and the latter wants to ideally pay off the debt without accruing too much interest and service fees. However due to various constraints the borrower has to agree to terms which are not in his best interest or even default on the payments thus affecting his credit scores and his future credit worthiness.
+
+From a lender's perspective, he is looking to understand the risk vs benefit in lending to a certain borrower and thus looks at all factors that point to his credit worthiness. From a borrower's perspective one can understand factors that affect one's ability to pay back the loan in a timely manner without overpaying by analyzing the relationship between various variables. Going through the description of some of the variables we can identify some of the variables that are of interest to us. The variables of interest are marked below with an asterisk.
+
+### Initialize Global Options 
+```{r set-options, cache=FALSE}
+library(knitr)
+options(width = 80)
+opts_chunk$set(tidy.opts = list(width.cutoff = 80))
+opts_chunk$set(
+comment = "", warning = FALSE, message = FALSE, echo = TRUE, tidy = FALSE,size =
+"small"
+)
+hook_output = knit_hooks$get('output')
+knit_hooks$set( output = function(x, options)
+{
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) 
+  {x = knitr:::split_lines(x)
+  # any lines wider than n should be wrapped
+  if (any(nchar(x) > n))
+    x = strwrap(x, width = n)
+  x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)})
+
+```
+
+## Load the Data and Libraries
+```{r Data_Libraries}
+pd <- read.csv('prosperLoanData.csv')
+library(reshape2)
+library(RColorBrewer)
+library(ggplot2)
+library(extrafont) # For CM Roman fonts on figure labels.
+library(GGally)
+str(pd) # Structure of the dataframe
+ntheme = theme_grey()+theme(text = element_text(family = "CMU Serif",size = 24))
+theme_set(ntheme)
+```
+### Matrix Of Plots
+We make a couple of preliminary matrix plots to get a feel for the data. It would be nice to edit the variable names in the ggpairs command for easy readability. It was easier to just create another dataframe and rename the variables to a smaller name as a easy fix.
+```{r MatrixPfPlots}
+library(plyr)
+fd <- rename(
+pd, c(
+'CreditGrade' = 'CGrade', 'LoanStatus' = 'LStatus',
+'BorrowerAPR' = 'bApr', 'LenderYield' = 'LYield',
+'EstimatedEffectiveYield = EEYield', 'EstimatedLoss' = 'ELoss',
+'EstimatedReturn' = 'EReturn', 'ProsperRating..numeric.' = 'Rating',
+'ProsperScore' = 'PScore','BorrowerState' = 'BState','Occupation' =
+'Occup',
+'EmploymentStatus' = 'Estatus','CreditScoreRangeLower' = 'CSLow',
+'CreditScoreRangeUpper' = 'CSUp','CurrentCreditLines' = 'CCLine',
+'OpenCreditLines' = 'OCLine','TotalCreditLinespast7years' = 'TC7yrs',
+'OpenRevolvingMonthlyPayment' = 'ORMpay', 'CurrentDelinquencies' = 'CrntDel',
+'AmountDelinquent' = 'AmDel','DelinquenciesLast7Years' = 'Del7yrs',
+'DebtToIncomeRatio' = 'D2IRat', 'LoanMonthsSinceOrigination' = 'LMnthOri',
+'MonthlyLoanPayment' = 'MLPay',
+'LP_CustomerPayments' = 'CusPay','LP_CustomerPrincipalPayments' = 'CusPPay',
+'LP_GrossPrincipalLoss' = 'GrPrLs','LP_NetPrincipalLoss' = 'NtPrLs'
+)
+)
+# matrix of plots
+set.seed(10000)
+pdn <- fd[sample(1:length(pd$LenderYield),10000),c(4,8,10,14,16,17,18,21,29,30,31,32,
+                                                  33,37,38)]
+p1 <- ggpairs(pdn,params = c(shape = I('.'),outlier.shape = I('.')))
+
+suppressMessages(print(p1))
+
+pdn = fd[sample(1:length(pd$LenderYield),10000),c(38,39,47,48,50,54,57,58,60,62,68,69,
+                                                  70,75)]
+p2 <- ggpairs(pdn,params = c(shape = I('.'),outlier.shape = I('.')))
+suppressMessages(print(p2))
+
+pdn  = fd[sample(1:length(pd$LenderYield),10000),c(48,58,60,62,68,69,70,75)]
+p3 <- ggpairs(pdn,params = c(shape = I('.'),outlier.shape = I('.')))
+suppressMessages(print(p3))
+
+pdn = fd[sample(1:length(pd$LenderYield),10000),c(4,8,11,12,14,16,20)]
+p4 <- ggpairs(pdn,params = c(shape = I('.'),outlier.shape = I('.')))  
+suppressMessages(print(p4))
+
+pdn = fd[sample(1:length(pd$LenderYield),10000),c(4,8,11,12,14,16,20,31, 38,58,62,75)]
+p5 <- ggpairs(pdn,params = c(shape = I('.'),outlier.shape = I('.')))
+suppressMessages(print(p5))
+
+```
