@@ -111,3 +111,16 @@ p5 <- ggpairs(pdn,params = c(shape = I('.'),outlier.shape = I('.')))
 suppressMessages(print(p5))
 
 ```
+## Factor Variables
+We see that some of the variables that should be factors are treated as numeric variables by noticing that we get a density plot instead of a histogram (e.g. ProsperRating..numeric.). Accordingly, we convert them to factor variables:
+```{r ConvertToFactors}
+# Prosperrating as a factor
+pd$ProsperRating..numeric. = as.factor(pd$ProsperRating..numeric.)
+# Loan TermPeriod as a factor
+pd$Term = as.factor(pd$Term)
+# Order the Grades in decreasing order
+pd$CreditGrade = ordered(pd$CreditGrade,c("AA", "A","B", "C", "D", "E", "HR","NC",""))
+# Order the ProsperScore
+unique(pd$ProsperScore)
+pd$ProsperScore = ordered(pd$ProsperScore,c(1,2,3,4,5,6,7,8,9,10,11,NA))
+```
