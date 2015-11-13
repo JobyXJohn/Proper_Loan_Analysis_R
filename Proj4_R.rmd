@@ -203,4 +203,47 @@ ggplot(aes(x=ProsperRating..numeric.,y=BorrowerAPR),
 # plot should be incentive to maintain a high credit rating.  
 ```
 
+### By State
+```{r ByState}
+#pds<-subset(pd,AmountDelinquent>0) # subset of delinquent loans
+pds <- pd[pd$AmountDelinquent>0 & !is.na(pd$LoanOriginalAmount) & !is.na(pd$LoanOriginalAmount)>0,]
+#pds$NormalizeAmtDelinq=pds$AmountDelinquent/pds$LoanOriginalAmount
+ggplot(aes(x=BorrowerState,y=AmountDelinquent/LoanOriginalAmount),data=pds)+
+  geom_boxplot()+ylab('Delinquent Amount / Original Loan')+
+  xlab('Borrower State')+
+  theme(axis.text.x =element_text(angle=0,size=10))+coord_cartesian(ylim=c(0,2.5))
+#### check log vs non-log
+ggplot(aes(x=BorrowerState,y=AmountDelinquent/LoanOriginalAmount),data=pds)+
+  geom_boxplot()+scale_y_log10()+ylab('Delinquent Amount / Original Loan')+
+  xlab('Borrower State')+
+  theme(axis.text.x =element_text(angle=0,size=10))
+```
+
+
+```{r Ratio}
+library(dplyr)
+pdAmtDelinqRatio<- pd[pd$AmountDelinquent>0 & !is.na(pd$AmountDelinquent),] %>%
+                         group_by(BorrowerState) %>%
+                         dplyr::summarise(mean_AmtDelinqRatio= mean(AmountDelinquent/LoanOriginalAmount),
+                         n=n()) %>%
+                         arrange(BorrowerState)
+pdAmtDelinqRatio[pdAmtDelinqRatio$n== max(pdAmtDelinqRatio$n),]
+pdAmtDelinqRatio[pdAmtDelinqRatio$n== min(pdAmtDelinqRatio$n),]
+```
+```{r AmtDelinq}
+pdAmtDelinqByState <- pd[pd$AmountDelinquent>0 & !is.na(pd$AmountDelinquent),] %>%
+                         group_by(BorrowerState) %>%
+                         dplyr::summarise(mean_Amount_Delinq = mean(AmountDelinquent),
+                         n=n()) %>%
+                         arrange(BorrowerState)
+summary(pdAmtDelinqByState)
+ggplot(aes(x=BorrowerState,y=mean_Amount_Delinq),data=pdAmtDelinqByState)+geom_bar(stat="identity")+theme(axis.text.x =element_text(angle=0,size=10))+ylab('Mean Amount Delinquent')
+# Sometimes the Amount Delinquent is 2 orders of magnitude greater than Original Loan. 
+```
+```{r}
+##Minimum and Max Absolute Delinquencies 
+pdAmtDelinqByState[pdAmtDelinqByState$n== max(pdAmtDelinqByState$n),]
+pdAmtDelinqByState[pdAmtDelinqByState$n== min(pdAmtDelinqByState$n),]
+```
+
 
