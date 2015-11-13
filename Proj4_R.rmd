@@ -247,3 +247,59 @@ pdAmtDelinqByState[pdAmtDelinqByState$n== min(pdAmtDelinqByState$n),]
 ```
 
 
+### Yield, Returns, and Other Plots
+```{r}
+### We could do similar analysis for Yield by Credit Rating. 
+before2009 = pd[as.POSIXct(pd$LoanOriginationDate) < as.POSIXct('2009-01-01 00:00:00'),
+                'CreditGrade']
+after2009 = pd[as.POSIXct(pd$LoanOriginationDate) >=as.POSIXct('2009-01-01 00:00:00'),
+               'ProsperRating..Alpha.']
+```
+```{r}
+pd[as.POSIXct(pd$LoanOriginationDate) < as.POSIXct('2009-01-01 00:00:00'),
+   'ConsolCreditGrade'] <- before2009
+pd[as.POSIXct(pd$LoanOriginationDate) >= as.POSIXct('2009-01-01 00:00:00'),
+   'ConsolCreditGrade'] <- after2009
+```
+```{r}
+pd$ConsolCreditGrade= ordered(pd$ConsolCreditGrade,levels=c("AA", "A","B", "C", "D", "E", "HR","NC","NV",NA))
+
+spd <- pd[!is.na(pd$EstimatedLoss) & !is.na(pd$EstimatedEffectiveYield),]
+pdLossYield <-  pd %>%
+                group_by(ConsolCreditGrade) %>%
+                summarize(mean_Estimated_Loss = mean(EstimatedLoss,na.rm=TRUE),
+                mean_Effective_Yield = mean(EstimatedEffectiveYield,na.rm=TRUE)) %>%
+                ungroup()%>%
+                arrange(ConsolCreditGrade)
+```
+
+```{r}
+qplot(x=ConsolCreditGrade,y=mean_Estimated_Loss,data=pdLossYield)+
+  geom_bar(stat="identity")+xlab('Credit Grade')+ylab('Estimated Loss (Mean)')
+
+qplot(x=ConsolCreditGrade,y=mean_Effective_Yield,data=pdLossYield)+
+  geom_bar(stat="identity")+xlab('Credit Grade')+ylab('Effective Yield (Mean)')
+```
+Similarly we can ask questions like which kind of Loan is made out most. Or which state has the most number of motorcycle loans.
+
+## By State
+```{r MoreSummary}
+# Statewise count of the number of loans in each category.
+pdQ <-  pd %>%
+                group_by(BorrowerState,ListingCategory..numeric.) %>%
+                summarize(count = n(),
+                          Amount = sum(LoanOriginalAmount)) %>%
+                arrange(BorrowerState)
+pdQmost <- pdQ[!(pdQ$BorrowerState==""),] %>%
+          group_by(ListingCategory..numeric.) %>%
+          summarize(TotalNumber = sum(count),
+                    TotalLoan = sum(Amount))%>%
+          arrange(TotalNumber)
+qplot(data=pdQmost,x=ListingCategory..numeric.,y=TotalNumber)+geom_bar(stat="identity")+
+  scale_y_log10()+xlab('Category')+ylab('Number Of Loans')
+
+qplot(data=pdQmost,x=ListingCategory..numeric.,y=TotalLoan)+
+  geom_bar(stat="identity")+scale_y_log10()+xlab('Category')+ylab('Loan Amounts')
+```
+
+
