@@ -124,3 +124,51 @@ pd$CreditGrade = ordered(pd$CreditGrade,c("AA", "A","B", "C", "D", "E", "HR","NC
 unique(pd$ProsperScore)
 pd$ProsperScore = ordered(pd$ProsperScore,c(1,2,3,4,5,6,7,8,9,10,11,NA))
 ```
+## Exploratory Analysis
+```{r AmountDelinquent}
+pds <-
+  subset(pd,LoanCurrentDaysDelinquent > 0) # subset of delinquent loans
+  qplot(
+  data = pd,x = pd$LoanCurrentDaysDelinquent,binwidth = 50
+  ) +
+  scale_x_continuous(breaks = seq(0,3000,200),limits = c(1,3000)) +
+  xlab('Days Delinquent')
+# Notice some people who are delinquent for more than 2500 days!!
+# The number of people who remain delinquent drops after 1000 days. It further incrases
+#to 2000 days and just before 2500 days there is an abrupt drop in the number of
+#delinquent loans indicating that the loans were probably charged off after that limit.
+#There are a few "extraodrindary" loans that survive the 2500 day mark.
+```
+
+Consider the variation of delinquent amount and the number of delinquencies the borrower has had in the last 7 years. 
+```{r AmopuntDelinquent_vs_DaysDelinquent}
+    npd <- pd[pd$AmountDelinquent > 0 & !is.na(pd$AmountDelinquent &
+                                               pd$LoanCurrentDaysDelinquent > 0.1),]
+    npd <- npd[npd$LoanCurrentDaysDelinquent > 0,]
+    ggplot(data = npd,aes(x = LoanCurrentDaysDelinquent,y = AmountDelinquent)) +
+    geom_point( size = 1,position = 'jitter',alpha = 1,color = 'red') +
+    geom_line(linetype = 1,stat = "summary",fun.y = median) +
+    xlab('Current Days Delinquent') +
+    ylab('AmountDelinquent') + ylim(c(0,1.5e5))
+    geom_smooth(method = "lm")
+    # It is hard to see any relation between the variables.
+```
+Looking at the same variables in log-scale reveals a hidden relationship.
+```{r AmountDelinquent_vs_DelinquenciesInLast7Years}
+npd <- pd[pd$AmountDelinquent>0 & !is.na(pd$AmountDelinquent 
+                                         & pd$DelinquenciesLast7Years>0.1),]
+npd <- npd[npd$DelinquenciesLast7Years>0,]
+pamtDelinq <- ggplot(data=npd,aes(x=DelinquenciesLast7Years,y=AmountDelinquent))+
+  geom_point(size=1,position = 'jitter',alpha=1/5,color='red')+
+  geom_line(stat='summary',fun.y=quantile,probs=0.9,linetype=2,color='blue')+
+  geom_line(linetype=1,stat="summary",fun.y=median)+
+  geom_line(stat='summary',fun.y=quantile,probs=0.1,linetype=2,color='blue')+
+  scale_x_log10()+scale_y_log10()+
+  stat_smooth(formula = y~x)+
+  xlab('Log of Delinquencies in Last 7 years')+ylab('Log of AmountDelinquent')
+print(pamtDelinq)
+# 
+```
+We see that there is a relationship of the form $y=k x^m$, where y = mean of  AmountDelinqeint and $x$= mean of Current Days Delinquent.
+
+
