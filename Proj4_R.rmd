@@ -171,4 +171,36 @@ print(pamtDelinq)
 ```
 We see that there is a relationship of the form $y=k x^m$, where y = mean of  AmountDelinqeint and $x$= mean of Current Days Delinquent.
 
+Plot By Credit Grade
+Reorder the credit grades in the right order.
+```{r CreditGrade}
+# Reorder the grades
+pd$CreditGrade= ordered(pd$CreditGrade,c("AA", "A","B", "C", "D", "E", "HR","NC",""))
+pd$ProsperRating..Alpha.= ordered(pd$ProsperRating..Alpha.,c("AA", "A","B", "C", "D", "E", "HR","",NA))
+library(plyr)
+pd$CreditGrade = mapvalues(pd$CreditGrade, from = "", to = "NV")
+pd$pd$ProsperRating..Alpha. = mapvalues(pd$ProsperRating..Alpha., from = "", to = "NV")
+# NV for "No Value""
+
+# plot of CreditGrade vs Amount Delinquent.
+ggplot(aes(x=CreditGrade,y=AmountDelinquent),data=pd[pd$AmountDelinquent>0,])+
+  geom_boxplot()+ylim(c(0,2.5e3))
+
+ggplot(aes(x=ProsperRating..Alpha.,y=AmountDelinquent),data=pd[pd$AmountDelinquent>0,])+
+  geom_boxplot()+ylim(c(0,2.5e3))+
+  guides(color=guide_legend(title="Rating", override.aes =
+                                           list(size=5)))
+
+qplot(x=pds$LP_CustomerPrincipalPayments/pds$LoanOriginalAmount,
+      y=pds$AmountDelinquent/pds$LoanOriginalAmount,data=pds,color=ProsperScore)+
+  scale_y_log10()+xlim(0,0.5)
+# Comparing the Borrower APR and Prosper Rating
+ggplot(aes(x=ProsperRating..numeric.,y=BorrowerAPR),
+       data=pd[!is.na(pd$ProsperRating..numeric.),])+
+  geom_boxplot()+scale_x_discrete()+xlab("Prosper Rating")
+# This figure shows that as a lender's rating worsens, the lender tries to mitigate his
+# risk by levying a heavier interesrt rate on the loan. For future borrowers, just this
+# plot should be incentive to maintain a high credit rating.  
+```
+
 
