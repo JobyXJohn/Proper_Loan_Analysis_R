@@ -396,3 +396,84 @@ ggplot(aes(x = LoanStatus,y = EstimatedEffectiveYield),data = pd) + geom_boxplot
   # regimes. This indicates that there must be some other criterion splitting the data in to the 
   # two regimes.
 
+ ###### By ProsperScore
+  # Define a function to compute stats
+  stat_sum_single <- function(fun, geom = "point", ...) {
+  stat_summary(
+  fun.y = fun, colour = "black", geom = geom, size = 1, ...
+  )
+  }
+  
+  p1 <-
+  ggplot(data = pd[pd$Term == 36 &
+  pd$LoanMonthsSinceOrigination < 39 & !is.na(pd$EstimatedEffectiveYield) ,],aes(x =
+                                           EstimatedLoss,y = EstimatedEffectiveYield)) +
+  stat_sum_single(mean,geom = "line",linetype=2) +
+  stat_smooth(method = "lm", formula = y ~ poly(x,1), size = 1) +
+  geom_point(aes(color = ProsperScore),alpha = 1 / 2) +
+  guides(color = guide_legend(override.aes = list(alpha = 1,size = 5)))
+  print(p1)
+  
+  pd$Term = as.factor(pd$Term)
+  npd <- pd[!is.na(pd$EstimatedEffectiveYield) &
+              pd$EstimatedEffectiveYield <0.275 & pd$LoanMonthsSinceOrigination >= 39 
+            & pd$Term == 36,]
+  
+  p2 <-   ggplot(data = npd,
+  aes(x = EstimatedLoss,y = EstimatedEffectiveYield,color = ProsperScore,group=1)) +
+  geom_point(alpha = 1 / 2,size = 3)+
+  stat_smooth(method = "lm", formula = y ~ poly(x,2)) +
+  stat_sum_single(mean,geom = "line") +
+  guides(color = guide_legend(override.aes = list(alpha = 1,size = 5))) 
+  print(p2) 
+  
+  p3 <- ggplot(data = pd[!is.na(pd$EstimatedEffectiveYield) & 
+  pd$LoanMonthsSinceOrigination < 39,],aes(x = EstimatedLoss,y = EstimatedEffectiveYield,shape=
+  Term))+
+  stat_smooth(method = "lm", formula = y ~ poly(x,1), size = 1,aes(color = Term)) +
+  guides(color = guide_legend(override.aes = list(alpha = 1,size = 8))) +ylab("Eff. Loss")
+  p4 <-   p3 + geom_point(aes(x = EstimatedLoss,y = EstimatedEffectiveYield,shape = Term),alpha =
+  1 / 10, size = 3  ) + guides(shape = guide_legend(override.aes = list(alpha = 1,size = 4)))+ylab("Eff. Yield")
+  print(p4)
+  
+```
+Notice that the Estimated effective yield for the lender is minimum when the Loan Status is completed. That means that the Lender Stands to gain least if the lender pays off his loan in a timely manner. Discounting the cases where loans are charged-off, it seems that the Lender can maximize profits by charges levied on the borrower (interest and late fees).
+
+## Debt To Income Ratio
+```{r}
+#Reconvert EstimateLoss to a numeric type to allow math operations.
+pd$EstimatedLoss = as.numeric(pd$EstimatedLoss)
+pDtoIR<- ggplot(aes(y = DebtToIncomeRatio,x = BorrowerRate),data =
+           pd[pd$Term == 36 & pd$DebtToIncomeRatio > 0 ,])+
+        geom_point(aes(color = ConsolCreditGrade),position = position_jitter(width = 0.005,
+                       height = 0.05),alpha=1/3) +scale_color_brewer(palette="Set1")+
+        scale_y_log10(limits=c(0.005,10^0.4))+
+        xlim(c(0,0.4))+
+        stat_smooth(method = "lm", formula = y ~ poly(x,1),se=TRUE,size=1)+
+        guides(color = guide_legend(title = "Grade", override.aes = list(alpha = 1,size = 5)))
+print(pDtoIR)
+```
+```{r YieldByScore}
+ggplot(aes(factor(ProsperScore),LenderYield),data=pds)+geom_boxplot()
+
+```
+
+## Credit Score
+```{r CreditScore}
+ggplot(aes(x=CreditScoreRangeLower),data=pd,binwidth=5)+geom_histogram()
+```
+```{r CreditScore1}
+ggplot(aes(y=EstimatedLoss,x=BorrowerRate,color=CreditScoreRangeLower),
+       data=pd[pd$CreditScoreRangeLower>320,])+geom_point(alpha=1/2,size=3)+
+scale_color_gradientn(colours = rainbow(10))+
+guides(color=guide_colorbar(title="Cred Score", override.aes =list(alpha=1)))
+```
+```{r CreditScore2}
+# Only the 36 month loans
+ggplot(aes(y=EstimatedLoss,x=BorrowerRate,color=CreditScoreRangeLower),
+       data=pd[pd$Term==36 & pd$CreditScoreRangeLower>320 & pd$LoanMonthsSinceOrigination >39,])+
+geom_point(alpha=1/3,size=3)+
+scale_color_gradientn(colours = rainbow(10))+
+guides(color=guide_colorbar(title="Cred Score", override.aes =list(alpha=1)))
+```
+
