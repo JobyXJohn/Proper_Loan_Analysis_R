@@ -476,4 +476,30 @@ geom_point(alpha=1/3,size=3)+
 scale_color_gradientn(colours = rainbow(10))+
 guides(color=guide_colorbar(title="Cred Score", override.aes =list(alpha=1)))
 ```
+## Term + Loan Status
+```{r CreditScore3}
+# Only the 12 and 60 month loans
+library('gridExtra')
+p1<-ggplot(aes(y=EstimatedLoss,x=BorrowerRate),data=pd[pd$CreditScoreRangeLower>320 &
+                                                         pd$Term==12,])+
+  geom_point(aes(color=CreditScoreRangeLower),alpha=1/3,size=3)+
+geom_smooth(method="lm")+scale_color_gradientn(colours = rainbow(10))+
+ggtitle("Term=12 Months")+
+guides(color=guide_colorbar(title="Cred Score", override.aes =list(alpha=1)))
+
+p2 <- ggplot(aes(y=EstimatedLoss,x=BorrowerRate),data=pd[pd$Term==60,])+
+geom_point(aes(color=CreditScoreRangeLower),alpha=1/3,size=3)+
+scale_color_gradientn(colours= rainbow(10))+
+geom_smooth(method="lm")+ggtitle("Term =60 Months")+
+guides(color=guide_colorbar(title="Cred Score", override.aes =list(alpha=1)))
+
+p3 <- ggplot(aes(y=EstimatedLoss,x=BorrowerRate),data=pd[pd$Term==36
+                                                 &pd$LoanMonthsSinceOrigination <39 ,])+
+geom_point(aes(color=CreditScoreRangeLower),alpha=1/3,size=3)+
+scale_color_gradientn(colours= rainbow(10))+
+geom_smooth(method="lm")+ggtitle("Term =36 Months (Loan Month <39)")+
+guides(color=guide_colorbar(title="Cred Score", override.aes =list(alpha=1)))
+
+grid.arrange(p1,p3,p2,ncol=1)
+```
 
