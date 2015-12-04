@@ -1,0 +1,414 @@
+---
+output:
+  pdf_document:
+    fig_caption: yes
+    fig_height: 10
+    fig_width: 16
+    highlight: zenburn
+    keep_tex: yes
+    toc: yes
+  html_document:
+    toc: yes
+  word_document: default
+---
+---
+title: 'Project 4: Prosper Loan Data'
+author: "Joby John"
+date: "November 10, 2015"
+output: md_document
+---
+## Introduction
+
+This dataset involves the loan data from Prosper Loans. The aim is conduct an Exploratory Data Analysis (EDA) of this dataset and find hidden relationships and important features that affect the lender and the borrower. Going through the description of the features one can get a good idea of the lender-borrower relationship. The lender wants to maximize his returns or yield from the Borrower and the latter wants to ideally pay off the debt without accruing too much interest and service fees. However due to various constraints the borrower has to agree to terms which are not in his best interest or even default on the payments thus affecting his credit scores and his future credit worthiness.
+
+From a lender's perspective, he is looking to understand the risk vs benefit in lending to a certain borrower and thus looks at all factors that point to his credit worthiness. From a borrower's perspective one can understand factors that affect one's ability to pay back the loan in a timely manner without overpaying by analyzing the relationship between various variables. Going through the description of some of the variables we can identify some of the variables that are of interest to us. The variables of interest are marked below with an asterisk.
+### Initialize Global Options 
+```{r set-options, echo=FALSE, cache=FALSE}
+library(knitr)
+options(width=80)
+opts_chunk$set(tidy.opts=list(width.cutoff=80))
+opts_chunk$set(comment = "", warning = FALSE, message = FALSE, echo = TRUE, tidy = FALSE,size="small")
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+
+```
+
+### Load the Data and Libraries
+```{r Data_Libraries}
+pd <- read.csv('prosperLoanData.csv')
+library(reshape2)
+library(RColorBrewer)
+library(ggplot2)
+library(extrafont) # For CM Roman fonts on figure labels.
+library(GGally)
+str(pd) # Structure of the dataframe
+ntheme = theme_grey()+theme(text = element_text(family = "CMU Serif",size = 24))
+theme_set(ntheme)
+```
+We make a couple of preliminary matrix plots to get a feel for the data. It would be nice to edit the variable names in the ggpairs command for easy readability. It was easier to just create another dataframe and rename the variables to a smaller name as a easy fix.
+#```{r MatrixPfPlots}
+library(plyr)
+fd<-rename(pd, c('CreditGrade' = 'CGrade', 'LoanStatus' = 'LStatus',
+             'BorrowerAPR'='bApr', 'LenderYield' = 'LYield',
+             'EstimatedEffectiveYield = EEYield', 'EstimatedLoss' = 'ELoss',
+            'EstimatedReturn'='EReturn', 'ProsperRating..numeric.' = 'Rating',
+        'ProsperScore'='PScore','BorrowerState'='BState','Occupation'='Occup',
+            'EmploymentStatus'='Estatus','CreditScoreRangeLower'='CSLow',
+        'CreditScoreRangeUpper'='CSUp','CurrentCreditLines'='CCLine',
+        'OpenCreditLines'='OCLine','TotalCreditLinespast7years'='TC7yrs',
+  'OpenRevolvingMonthlyPayment'= 'ORMpay', 'CurrentDelinquencies' = 'CrntDel',
+   'AmountDelinquent'='AmDel','DelinquenciesLast7Years'='Del7yrs',
+  'DebtToIncomeRatio'='D2IRat', 'LoanMonthsSinceOrigination'='LMnthOri',
+  'MonthlyLoanPayment'= 'MLPay',
+  'LP_CustomerPayments'='CusPay','LP_CustomerPrincipalPayments'='CusPPay',
+  'LP_GrossPrincipalLoss'='GrPrLs','LP_NetPrincipalLoss'='NtPrLs'))
+### matrix of plots
+set.seed(10000)
+pdn = fd[sample(1:length(pd$LenderYield),10000),c(4,8,10,14,16,17,18,21,29,30,31,32,33,37,38)]
+p1 <- ggpairs(pdn,params = c(shape=I('.'),outlier.shape =I('.')))
+suppressMessages(print(p1))
+
+pdn = fd[sample(1:length(pd$LenderYield),10000),c(37,38,47,48,50,54,57,58,60,62,68,69,70,75)]
+p2 <- ggpairs(pdn,params = c(shape=I('.'),outlier.shape =I('.')))
+suppressMessages(print(p2))
+
+# Neither are the axis labels visible nor is it possible to make useful inference from such a
+# dense plot. So we whittle the variables down further by chossing variables showing some 
+# correlations.
+pdn  = fd[sample(1:length(pd$LenderYield),10000),c(48,58,60,62,68,69,70,75)]
+p3 <- ggpairs(pdn,params = c(shape=I('.'),outlier.shape =I('.')))  
+suppressMessages(print(p3))
+
+pdn = fd[sample(1:length(pd$LenderYield),10000),c(4,8,11,12,14,16,20)]
+p4<- ggpairs(pdn,params = c(shape=I('.'),outlier.shape =I('.'),axisLables="show",columnLabels=c('Grade','APR','EEYield','ELoss','Rating','Score','E-Status')))  # Fix this: Column names remain unchanged
+suppressMessages(print(p4))
+
+pdn = fd[sample(1:length(pd$LenderYield),10000),c(4,8,11,12,14,16,20,31, 38,58,62,75)]
+p5 <- ggpairs(pdn,params = c(shape=I('.'),outlier.shape =I('.')))  
+suppressMessages(print(p5))
+
+#```
+We see that some of the variables that should be factors are treated as numeric variables by noticing that we get a density plot instead of a histogram (e.g. ProsperRating..numeric.). Accordingly, we convert them to factor variables:
+```{r ConvertToFactors}
+# Prosperrating as a factor
+pd$ProsperRating..numeric. = as.factor(pd$ProsperRating..numeric.)
+# Loan TermPeriod as a factor
+pd$Term =as.factor(pd$Term)
+# Order the Grades in decreasing order
+pd$CreditGrade= ordered(pd$CreditGrade,c("AA", "A","B", "C", "D", "E", "HR","NC",""))
+# Order the ProsperScore
+unique(pd$ProsperScore)
+pd$ProsperScore = ordered(pd$ProsperScore,c(1,2,3,4,5,6,7,8,9,10,11,NA))
+```
+
+```{r AmountDelinquent}
+pds<-subset(pd,LoanCurrentDaysDelinquent>0) # subset of delinquent loans
+qplot(data=pd,x=pd$LoanCurrentDaysDelinquent,binwidth=50)+
+  scale_x_continuous(breaks=seq(0,3000,30),limits=c(1,3000))+
+  xlab('Days Delinquent')
+# Notice some people who are delinquent for more than 2500 days!!
+# The number of people who remain delinquent drops after 1000 days. It further incrases
+#to 2000 days and just before 2500 days there is an abrupt drop in the number of
+#delinquent loans indicating that the loans were probably charged off after that limit.
+#There are a few "extraodrindary" loans that survive the 2500 day mark.
+```
+
+Consider the variation of delinquent amount and the number of delinquencies the borrower has had in the last 7 years. 
+```{r AmopuntDelinquent_vs_DaysDelinquent}
+npd <- pd[pd$AmountDelinquent>0 & !is.na(pd$AmountDelinquent & pd$LoanCurrentDaysDelinquent>0.1),]
+npd <- npd[npd$LoanCurrentDaysDelinquent>0,]
+ggplot(data=npd,aes(x=LoanCurrentDaysDelinquent,y=AmountDelinquent))+
+  geom_point(size=1,position = 'jitter',alpha=1,color='red')+
+  geom_line(linetype=1,stat="summary",fun.y=median)+
+  xlab('Current Days Delinquent')+
+  ylab('AmountDelinquent')+
+  geom_smooth(method="lm")
+# It is hard to see any relation between the variables.
+```
+Looking at the same variables in log-scale reveals a hidden relationship.
+```{r AmountDelinquent_vs_DelinquenciesInLast7Years}
+npd <- pd[pd$AmountDelinquent>0 & !is.na(pd$AmountDelinquent 
+                                         & pd$DelinquenciesLast7Years>0.1),]
+npd <- npd[npd$DelinquenciesLast7Years>0,]
+ggplot(data=npd,aes(x=DelinquenciesLast7Years,y=AmountDelinquent))+
+  geom_point(size=1,position = 'jitter',alpha=1/5,color='red')+
+  geom_line(stat='summary',fun.y=quantile,probs=0.9,linetype=2,color='blue')+
+  geom_line(linetype=1,stat="summary",fun.y=median)+
+  geom_line(stat='summary',fun.y=quantile,probs=0.1,linetype=2,color='blue')+
+  scale_x_log10()+scale_y_log10()+
+  xlab('Log of Delinquencies in Last 7 years')+ylab('Log of AmountDelinquent')
+# 
+```
+We see that there is a relationship of the form $y=k x^m$, where y = mean of  AmountDelinqeint and $x$= mean of Current Days Delinquent.
+
+Plot By Credit Grade
+Reorder the credit grades in the right order.
+```{r CreditGrade}
+# Reorder the grades
+pd$CreditGrade= ordered(pd$CreditGrade,c("AA", "A","B", "C", "D", "E", "HR","NC",""))
+pd$ProsperRating..Alpha.= ordered(pd$ProsperRating..Alpha.,c("AA", "A","B", "C", "D", "E", "HR","",NA))
+library(plyr)
+pd$CreditGrade = mapvalues(pd$CreditGrade, from = "", to = "NV")
+pd$pd$ProsperRating..Alpha. = mapvalues(pd$ProsperRating..Alpha., from = "", to = "NV")
+# NV for "No Value""
+
+# plot of CreditGrade vs Amount Delinquent.
+ggplot(aes(x=CreditGrade,y=AmountDelinquent),data=pd[pd$AmountDelinquent>0,])+
+  geom_boxplot()+ylim(c(0,2.5e3))
+
+ggplot(aes(x=ProsperRating..Alpha.,y=AmountDelinquent),data=pd[pd$AmountDelinquent>0,])+
+  geom_boxplot()+ylim(c(0,2.5e3))+
+  guides(color=guide_legend(title="Rating", override.aes =
+                                           list(size=5)))
+
+qplot(x=pds$LP_CustomerPrincipalPayments/pds$LoanOriginalAmount,
+      y=pds$AmountDelinquent/pds$LoanOriginalAmount,data=pds,color=ProsperScore)+
+  scale_y_log10()+xlim(0,0.5)
+# Comparing the Borrower APR and Prosper Rating
+ggplot(aes(x=ProsperRating..numeric.,y=BorrowerAPR),
+       data=pd[!is.na(pd$ProsperRating..numeric.),])+
+  geom_boxplot()+scale_x_discrete()+xlab("Prosper Rating")
+# This figure shows that as a lender's rating worsens, the lender tries to mitigate his
+# risk by levying a heavier interesrt rate on the loan. For future borrowers, just this
+# plot should be incentive to maintain a high credit rating.  
+```
+
+```{r By State}
+#pds<-subset(pd,AmountDelinquent>0) # subset of delinquent loans
+pds <- pd[pd$AmountDelinquent>0 & !is.na(pd$LoanOriginalAmount) & !is.na(pd$LoanOriginalAmount)>0,]
+#pds$NormalizeAmtDelinq=pds$AmountDelinquent/pds$LoanOriginalAmount
+ggplot(aes(x=BorrowerState,y=AmountDelinquent/LoanOriginalAmount),data=pds)+
+  geom_boxplot()+scale_y_log10()+ylab('Delinquent Amount / Original Loan')+
+  xlab('Borrower State')+
+  theme(axis.text.x =element_text(angle=0,size=10))
+```
+```{r}
+#detach("package:plyr",unload=TRUE)
+library(dplyr)
+pdAmtDelinqByState <- pd[pd$AmountDelinquent>0 & !is.na(pd$AmountDelinquent),] %>%
+                         group_by(BorrowerState) %>%
+                         dplyr::summarise(mean_Amount_Delinq = mean(AmountDelinquent),
+                         n=n()) %>%
+                         arrange(BorrowerState)
+summary(pdAmtDelinqByState)
+ggplot(aes(x=BorrowerState,y=mean_Amount_Delinq),data=pdAmtDelinqByState)+geom_bar(stat="identity")+theme(axis.text.x =element_text(angle=0,size=10))
+
+qplot(x=BorrowerState,y=n,data=pdAmtDelinqByState)+geom_bar(stat="identity")+
+  theme(axis.text.x =element_text(angle=0,size=10))
+```
+```{r}
+##Minimum and Max Absolute Delinquencies 
+pdAmtDelinqByState[pdAmtDelinqByState$n== max(pdAmtDelinqByState$n),]
+pdAmtDelinqByState[pdAmtDelinqByState$n== min(pdAmtDelinqByState$n),]
+```
+```{r}
+### We could do similar analysis for Yield by Credit Rating. 
+before2009 = pd[as.POSIXct(pd$LoanOriginationDate) < as.POSIXct('2009-01-01 00:00:00'),'CreditGrade']
+after2009 = pd[as.POSIXct(pd$LoanOriginationDate) >=as.POSIXct('2009-01-01 00:00:00'),'ProsperRating..Alpha.']
+```
+```{r}
+pd[as.POSIXct(pd$LoanOriginationDate) < as.POSIXct('2009-01-01 00:00:00'),'ConsolCreditGrade'] <- before2009
+pd[as.POSIXct(pd$LoanOriginationDate) >= as.POSIXct('2009-01-01 00:00:00'),'ConsolCreditGrade'] <- after2009
+```
+```{r}
+pd$ConsolCreditGrade= ordered(pd$ConsolCreditGrade,levels=c("AA", "A","B", "C", "D", "E", "HR","NC","NV",NA))
+
+spd <- pd[!is.na(pd$EstimatedLoss) & !is.na(pd$EstimatedEffectiveYield),]
+pdLossYield <-  pd %>%
+                group_by(ConsolCreditGrade) %>%
+                summarize(mean_Estimated_Loss = mean(EstimatedLoss,na.rm=TRUE),
+                mean_Effective_Yield = mean(EstimatedEffectiveYield,na.rm=TRUE)) %>%
+                ungroup()%>%
+                arrange(ConsolCreditGrade)
+```
+```{r}
+qplot(x=ConsolCreditGrade,y=mean_Estimated_Loss,data=pdLossYield)+geom_bar(stat="identity")+xlab('Credit Grade')+ylab('Estimated Loss (Mean)')
+
+qplot(x=ConsolCreditGrade,y=mean_Effective_Yield,data=pdLossYield)+geom_bar(stat="identity")+xlab('Credit Grade')+ylab('Effective Yield (Mean)')
+```
+Similarly we can ask questions like which kind of Loan is made out most. Or which state has the most number of motorcycle loans.
+```{r MoreSummary}
+# Statewise count of the number of loans in each category.
+pdQ <-  pd %>%
+                group_by(BorrowerState,ListingCategory..numeric.) %>%
+                summarize(count = n(),
+                          Amount = sum(LoanOriginalAmount)) %>%
+                arrange(BorrowerState)
+pdQmost <- pdQ[!(pdQ$BorrowerState==""),] %>%
+          group_by(ListingCategory..numeric.) %>%
+          summarize(TotalNumber = sum(count),
+                    TotalLoan = sum(Amount))%>%
+          arrange(TotalNumber)
+qplot(data=pdQmost,x=ListingCategory..numeric.,y=TotalNumber)+geom_bar(stat="identity")+
+  scale_y_log10()+xlab('Category')+ylab('Number Of Loans')
+
+qplot(data=pdQmost,x=ListingCategory..numeric.,y=TotalLoan)+
+  geom_bar(stat="identity")+scale_y_log10()+xlab('Category')+ylab('Loan Amounts')
+```
+
+All the pdlyr based analysis comes here
+### Other trends
+The difference between the \emph{Lender Yield} and the \emph{Borrower rate} is the service fee. Plotting the histogram of the difference between the two quantities we find that mostly the service fee is about $.01\%$. 
+
+```{r} 
+pd$SerFee = pd$BorrowerRate-pd$LenderYield
+ggplot(data=pd)+geom_histogram(aes(x=SerFee),binwidth=0.001)
+```
+
+```{r LoanStatus}
+#Check if the Effective Yield is affected by the loan status
+ggplot(aes(x = LoanStatus,y = EstimatedEffectiveYield),data = pd) + geom_boxplot() +
+  theme(axis.text.x =  element_text(angle = 45,size = 10))
+  # How does Loan Status Influence Estimated Return
+  ggplot(aes(x = LoanStatus,y = EstimatedReturn),data = pd) + geom_boxplot() +
+  theme(axis.text.x =   element_text(angle = 45,size = 10))
+  # We expect the Estimated Return to be correlated with the Lender Yield. How does the
+  # Prosper Rating affect this relationship?
+  ggplot(aes(x = LenderYield,y = EstimatedReturn,color = ProsperRating..numeric.),data = pd) +
+  geom_point()+guides(color = guide_legend(title = "Rating", override.aes = list(alpha = 1,size = 5)))
+  #Notice that PrsperScore Offers better resolution to distinguish the bands with the
+  # lowest Estimated Returns
+  ggplot(data = pd,aes(x = LenderYield,y = EstimatedReturn,color = ProsperScore)) +
+  geom_point()+guides(color = guide_legend(title = "Score", override.aes = list(alpha = 1,size = 5)))
+  ### Instead of Prosper rating, using ProsperScore gives better distinction
+  
+  ggplot(aes(x = EstimatedEffectiveYield,y = EstimatedReturn),data = pd) +
+  geom_point(color = 'purple') + 
+    guides(color = guide_legend(title = "Rating", override.aes = list(alpha = 1,size = 5)))
+  # Loan Terms are 12, 36 and  60 months; separating by Loan Term
+  # Term == 12 or 60
+  ggplot(aes(x = EstimatedEffectiveYield,y = EstimatedReturn),data = pd[pd$Term !=36,],) +
+  geom_point(color = 'blue') 
+  # Term == 36
+  ggplot(aes(x = EstimatedEffectiveYield,y = EstimatedReturn),data = pd[pd$Term ==
+  36,]) +
+  geom_point(color = 'red') 
+  # There seem to be two regimes within the 36month Term itself.
+  # Term ==36 and LoanMonthsSinceOrigination >= 40
+  # In this case we see that return = Effective yield (no difference)
+  # implying that estimated loss rate = 0.
+  ggplot(aes(x = EstimatedEffectiveYield,y = EstimatedReturn),data = pd[pd$Term ==
+  36 & pd$LoanMonthsSinceOrigination >= 39,],) +
+  geom_point(color = 'red')
+  # Term ==36 and LoanMonthsSinceOrigination < 39
+  # There are cases where it is within 39 months of the loan's beginning data
+  # i.e. no later than 3 months after loan term
+  ggplot(aes(x = EstimatedEffectiveYield,y = EstimatedReturn),data = pd[pd$Term ==
+  36 & pd$LoanMonthsSinceOrigination < 39,],) +
+  geom_point(color = 'red') + guides(color = guide_legend(title = "Rating", override.aes =
+  list(alpha = 1,size = 5)))
+  
+  #
+  ggplot(data = pd[pd$Term == 36 & pd$LoanMonthsSinceOrigination < 39,]) + 
+    geom_point(aes(x = EstimatedEffectiveYield,y = EstimatedReturn,color = ProsperScore)) +
+  stat_smooth(aes(x = EstimatedEffectiveYield,y = EstimatedReturn),method = "lm", 
+              formula = y ~ poly(x,1), size = 1) +
+    guides(color = guide_legend(title = "Score", override.aes = list(alpha =
+  1,size = 5)))
+  
+  ######
+  # We try another way to split the data, by classifying them as a loan that is on-going (more
+  # payments are expected in the future) or a loan that is done (no more payments expected).
+  #
+  
+  levels(pd$LoanStatus) # The different levels that a loanStatus is in.
+  pd$LoanStatusBucket = mapvalues(
+  pd$LoanStatus, from = levels(pd$LoanStatus), to = c(
+  "Done","Done","Done","OnGoing","OnGoing","OnGoing","OnGoing","OnGoing","OnGoing","OnGoing","OnGoing","OnGoing"
+  )
+  )
+  #npd = pd[as.POSIXct(pd$LoanOriginationDate) > as.POSIXct('2009-01-01 00:00:00'),]
+  npd = pd
+  ggplot(data = npd[npd$Term == 36,]) +
+  geom_point(aes(x = BorrowerRate,y = EstimatedLoss,color = LoanStatusBucket)) +
+  guides(color = guide_legend(title = "Status", override.aes = list(alpha =
+  1,size = 5)))
+  # Here it might seem that the linear relationship between the variables is when the status
+  # is ongoing; else it seems like there is a wider spread of borrower rate for a given
+  # EstimatedLoss
+  ggplot(data = npd[npd$Term == 36 &
+  npd$LoanStatusBucket == "Done",]) +
+  geom_point(aes(x = BorrowerRate,y = EstimatedLoss,color = LoanStatusBucket)) +
+  guides(color = guide_legend(title = "Status", override.aes = list(alpha =
+  1,size = 5)))
+  # We see that this kind of splitting does not clearly demarcate the linear and spreadout
+  # regimes.
+  
+  ###### By ProsperScore
+  #npd[npd$Term==36  & npd$LoanMonthsSinceOrigination >= 36,]
+  # convert the Loss in to a factor so as to compare the quadratic fit with the mean Yield
+  # for a given loss
+  # pd$EstimatedLossFR = ordered(pd$EstimatedLoss,c(sort(unique(npd$EstimatedLoss)),NA))
+  # Define a function to compute stats
+  stat_sum_single <- function(fun, geom = "point", ...) {
+  stat_summary(
+  fun.y = fun, colour = "black", geom = geom, size = 1, ...
+  )
+  }
+  #Rule out some outliers in Effective Yield
+  npd = pd
+  
+  p1 <-
+  ggplot(data = npd[npd$Term == 36 &
+  npd$LoanMonthsSinceOrigination < 39 &
+  !is.na(npd$EstimatedEffectiveYield) &
+  npd$EstimatedEffectiveYield < 0.275,],aes(x = EstimatedLoss,y = EstimatedEffectiveYield)) +
+  stat_sum_single(mean,geom = "line",linetype=2) +
+  stat_smooth(method = "lm", formula = y ~ poly(x,1), size = 1) +
+  geom_point(aes(color = ProsperScore),alpha = 1 / 2) +
+  guides(color = guide_legend(override.aes = list(alpha = 1,size = 5)))
+  print(p1)
+  
+  pd$Term = as.factor(pd$Term)
+  npd <- pd[!is.na(pd$EstimatedEffectiveYield) &
+              pd$EstimatedEffectiveYield <0.275 & pd$LoanMonthsSinceOrigination >= 39 
+            & pd$Term == 36,]
+  p2 <-   ggplot(data = npd,
+  aes(x = EstimatedLoss,y = EstimatedEffectiveYield,color = ProsperScore,group=1)) +
+    geom_point(alpha = 1 / 2,size = 3)+
+  stat_smooth(method = "lm", formula = y ~ poly(x,2)) +
+  stat_sum_single(mean,geom = "line") +
+  guides(color = guide_legend(override.aes = list(alpha = 1,size = 5))) 
+    print(p2)
+  
+  
+  p3 <- ggplot(data = pd[!is.na(pd$EstimatedEffectiveYield) & 
+  pd$EstimatedEffectiveYield < 0.275 &
+  pd$LoanMonthsSinceOrigination < 39,],aes(x = EstimatedLoss,y = EstimatedEffectiveYield,shape=
+  Term)) +
+  stat_smooth(
+  method = "lm", formula = y ~ poly(x,1), size = 1,aes(color = Term)
+  ) +
+  guides(color = guide_legend(override.aes = list(alpha = 1,size = 5))) 
+  
+  p4 <-   p3 + geom_point(
+  aes(x = EstimatedLoss,y = EstimatedEffectiveYield,shape = Term),alpha =
+  1 / 10, size = 3  )
+  print(p4)
+  
+  #########
+  
+  
+```
+Notice that the Estimated effective yield for the lender is minimum when the Loan Status is completed. That means that the Lender Stands to gain least if the lender pays off his loan in a timely manner. Discounting the cases where loans are charged-off, it seems that the Lender can maximize profits by charges levied on the borrower (interest and late fees).
+  
+```{r}
+  #Reconvert EstimateLoss to a numeric type to allow math operations.
+  pd$EstimatedLoss = as.numeric(pd$EstimatedLoss)
+  
+  ggplot(aes(x = DebtToIncomeRatio,y = BorrowerRate,color = ConsolCreditGrade),data =
+           npd[npd$Term == 36 &  npd$LoanStatusBucket == "Done" ,]) + xlim(c(0,1)) +
+          geom_point(position = position_jitter(width = 0.005,height = 0.005)) +
+    scale_x_log10()+
+    guides(color = guide_legend(title = "Status", override.aes = list(alpha = 1,size = 5)))
+```
+
