@@ -502,4 +502,65 @@ guides(color=guide_colorbar(title="Cred Score", override.aes =list(alpha=1)))
 
 grid.arrange(p1,p3,p2,ncol=1)
 ```
+```{r Term}
+# All three time TERM periods (12, 36 and 60 months)
+ggplot(aes(y=EstimatedLoss,x=BorrowerRate,color=Term),data=pd)+geom_point(alpha=1/5,size=3)+
+scale_color_brewer(palette = 'Set1',guide = guide_legend(title = 'Term', 
+                    reverse = T,override.aes = list(alpha = 1, size = 5)))
+```
+## By CreditScore
+```{r CreditScore4}
+pd$EstimatedLoss = as.numeric(pd$EstimatedLoss)
+ggplot(aes(y=EstimatedLoss,x=LoanStatus,color=CreditScoreRangeLower),
+       data=pd[pd$CreditScoreRangeLower>400,])+
+geom_point(alpha=1/5,size=3)+scale_y_log10()+
+geom_boxplot(outlier.size = .1,alpha=1/20)+
+theme(axis.text.x  = element_text(angle=45, vjust=1.0, size=15))+
+guides(color=guide_colorbar(title="Cred Score", override.aes =list(alpha=1)))+
+scale_color_gradientn(colours=rainbow(10))
+```
+
+## Credit Lines
+```{r bucket}
+pd$CreditLines.bucket <- cut(pd$CurrentCreditLines, breaks =c(0,seq(1,25,5),60))
+
+ggplot(aes(y=EstimatedLoss,x=LoanStatus,color=CreditLines.bucket),data=
+                                  pd[!is.na(pd$EstimatedLoss) & !is.na(pd$CreditLines.bucket),])+
+      scale_color_brewer(type='div',palette = 'Set1',guide = 
+                                              guide_legend(override.aes = list(alpha=1,size=1)))+
+      geom_boxplot(outlier.size = .5)+ylim(0,.25)+
+      theme(axis.text.x  = element_text(angle=45, vjust=0.8, size=18))+
+      guides(color=guide_legend(title="Cred Lines", override.aes =list(alpha=1)))
+
+p0<-ggplot(aes(y=EstimatedReturn,x=LoanStatus,color=CreditLines.bucket),data=
+                                  pd[!is.na(pd$EstimatedLoss) & !is.na(pd$CreditLines.bucket),])
+p1 <- p0+ scale_color_brewer(type='div',palette = 'Set1',guide = 
+                               guide_legend(override.aes = list(alpha=1,size=1)))+
+      geom_boxplot(outlier.size = .5)+ylim(0,.25)+
+      theme(axis.text.x  = element_text(angle=45, vjust=0.8, size=18))+
+      guides(color=guide_legend(title="Cred Lines", override.aes =list(alpha=1)))
+print(p1)
+
+pd$ReturnCut <- cut(pd$EstimatedReturn, breaks =c(-0.2,-1e-9,seq(0,0.3,0.01)))
+ggplot(aes(x=CurrentCreditLines),data=pd[!is.na(pd$ReturnCut) & !is.na(pd$CurrentCreditLines),])+ geom_histogram(binwidth=1,aes(fill=ReturnCut,y=..count..))+scale_x_discrete()+theme(axis.text.x=element_text(size=15))+guides(fill=guide_legend(title="Returns"))
+```
+
+## Customer Payments
+```{r}
+ ggplot(aes(y=LP_CustomerPayments,x=LoanOriginalAmount),data=
+          pd[pd$LP_CustomerPayments>1,],binwidth=.01)+
+  geom_point(alpha=1/10)+ylab('Customer Payments')+
+  xlab('Loan Original Amount')
+
+```
+Clearly there is an upper-bound of the Gross Principal Loss which is equal to the Loan Original Amount (one cannot lose more than the amount loaned). This indicates that in some cases the entire loan was a loss for the lender. A majority of the loans have zero Principal Loss, indicating that most of the loan is recovered. A similar plot is obtained when comparing the Net Principal Loss. 
+
+## Estimated Loss
+```{r Loss_By_CreditGrade}
+ggplot(aes(y=LP_NetPrincipalLoss/LoanOriginalAmount,x=CreditGrade),data=pd[pd$LP_NetPrincipalLoss>0,],binwidth=.01)+
+geom_boxplot()+ylab('Net Prin. Loss/ Loan Orig. Amt')
+  
+```
+The percentage of loaners in each category that are ``lossy'' for the lender increases as the credit grade worsens. The mean loss also increases. In fact for groups other than "AA" and 'A' grades sometimes the the 
+
 
