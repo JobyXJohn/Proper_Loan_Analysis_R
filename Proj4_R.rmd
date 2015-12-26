@@ -563,4 +563,167 @@ geom_boxplot()+ylab('Net Prin. Loss/ Loan Orig. Amt')
 ```
 The percentage of loaners in each category that are ``lossy'' for the lender increases as the credit grade worsens. The mean loss also increases. In fact for groups other than "AA" and 'A' grades sometimes the the 
 
+## Equations
+I introduce a few notations to make it slightly easier to understand the relationship between the different variables based on their description:
+\begin{quote}
+$y_e$ = Effective Yield\\
+$y_l$ = Lender Yield\\
+$r$ = Returns \\
+$I$ = Borrower Interest Rate \\
+$f_s$ = Service Fees \\
+$f_l$ = Late Fees \\ 
+$u$ = uncollected interest on charge-offs \\
+$l$ = Loss
+\end{quote}
+
+\begin{align}
+y_e &= I +f_l-f_s-u \\
+r &= y_e - l \\
+y_l &= I-f_s \\
+\Rightarrow y_e &= y_l+f_l-u \\
+r &=y_l+f_l-l-u
+\end{align}
+
+## Final Plots and Summary
+### Returns By ProsperScore (and By Term) 
+
+In this plot we look at the Estiamted Return for loans and analyze them based on Terms and colored by the ProsperScore. We find that in all plots  there is a trend of decreasing returns with decreasing (i.e. better) ProsperScore. As a borrower this means that if one is looking to get a loan with the lowest interest rate, it is essential to have established really good credit worthiness. We see that, in reality, very few borrowes are able to maintain a pristine score. The vast majority of the lenders have a score of 8 or below. We would imagine that increasing risk of lending to borrowers with worse scores would prevent lending. However we see that even borrowers with a Score of 1 are able to secure loans. Not only that, the lender is also able to extract a higher return from these groups probably in the form of late fee and interest. Conversely if the return is low on better scores what could be the incentive to give out loans to such a group? As we will see in the following plot, such a group also minimizes loss and hence is less risky from the lender's perspective. 
+
+The 36 month long loans for which borrowers have taken more than 90 days since the loan period expires (i.e. LoanMonthsSinceOrigination >39), some loans show negative returns. For all other categories the lender always has positive returns on the loans made. We also note that in this category, the number of borrowers with better scores increases dramatically over the other sections. Also the highest ProsperScore of 11 is not given to any borrower who has not repaid the loan within the term period. 
+
+### Returns By LoanStatus / Yield vs Loss
+```{r finalplots,echo=FALSE}
+
+p1 <- ggplot(aes(x=EstimatedReturn,fill=ProsperScore),data=pd[pd$Term==60,])+
+  geom_histogram(binwidth=0.003)+scale_x_continuous(breaks=seq(-0.2,0.3,0.02))+
+  theme(axis.text.x  = element_text(angle=0, size=15))+ggtitle('Term = 12 Months')+
+  guides(fill=guide_legend(title="Score"))+
+  xlab("Return")
+
+p2<-ggplot(aes(x=EstimatedReturn,fill=ProsperScore),data=pd[pd$Term==12,])+
+  geom_histogram(binwidth=0.003)+scale_x_continuous(breaks=seq(-0.2,0.3,0.02))+
+  theme(axis.text.x  = element_text(angle=0, size=15))+ggtitle('Term = 60 Months')+
+  guides(fill=guide_legend(title="Score"))+
+  xlab("Return")
+
+p3<-ggplot(aes(x=EstimatedReturn,fill=ProsperScore),data=pd[pd$Term==36 & pd$LoanMonthsSinceOrigination <39,])+
+  geom_histogram(binwidth=0.003)+scale_x_continuous(breaks=seq(-0.2,0.3,0.02))+
+  theme(axis.text.x  = element_text(angle=0, size=15))+ggtitle('Term = 36 Months')+
+  guides(fill=guide_legend(title="Score"))+
+  xlab("Return (Months Since Origin <39)")
+
+p4<-ggplot(aes(x=EstimatedReturn,fill=ProsperScore),data=pd[pd$Term==36 & pd$LoanMonthsSinceOrigination >=39,])+
+  geom_histogram(binwidth=0.005)+scale_x_continuous(breaks=seq(-0.2,0.3,0.04))+
+  theme(axis.text.x  = element_text(angle=0, size=15))+ggtitle('Term = 36 Months')+
+  guides(fill=guide_legend(title="Score"))+
+  xlab("Return (Months Since Origin >=39)")
+grid.arrange(p1,p2,p3,p4,ncol=2)
+```
+
+```{r, echo=FALSE}
+npd <- pd[pd$EstimatedReturn>1e-5 & !is.na(pd$EstimatedReturn),]
+npd$ReturnCut <- cut(npd$EstimatedReturn,c(seq(0,0.3,0.02)))
+p0<- ggplot(aes(x=CurrentCreditLines),data=npd[!is.na(npd$ReturnCut) & !is.na(npd$CurrentCreditLines),])+ geom_histogram(binwidth=1,aes(fill=ReturnCut))+scale_x_discrete()+theme(axis.text.x=element_text(size=15))+guides(fill=guide_legend(title="Returns"))+theme(axis.text.x =element_text(size=10),legend.title=element_text(size=10))
+
+library(dplyr)
+spd <- pd[!is.na(pd$EstimatedReturn) & !is.na(pd$CurrentCreditLines),] %>%
+      group_by(CurrentCreditLines) %>%
+      dplyr::summarise(mean_Return = mean(EstimatedReturn))%>%
+      arrange(CurrentCreditLines)
+
+p1<-ggplot(aes(x=CurrentCreditLines,y=mean_Return),data=spd)+
+  geom_bar(stat="identity",aes(alph=0.2),color="blue")+
+  scale_x_discrete(breaks=seq(0,60,1))+
+  theme(axis.text.x =element_text(angle=0,size=10))+
+  ylab("Mean Return")+xlab("No: Of Credit Lines")
+
+pd$CreditLines.bucket <- cut(pd$CurrentCreditLines, breaks =c(0,seq(1,25,5),60))
+
+p2<-ggplot(aes(y=EstimatedReturn,x=LoanStatus,color=CreditLines.bucket),data=
+             pd[!is.na(pd$EstimatedLoss) & !is.na(pd$CreditLines.bucket),])+
+  scale_color_brewer(type='div',palette = 'Set1',guide = 
+                       guide_legend(override.aes = list(alpha=1,size=1)))+
+  geom_boxplot(outlier.size = .5)+ylim(0,.25)+
+  theme(axis.text.x  = element_text(angle=45, vjust=0.8, size=10))+
+  guides(color=guide_legend(title="Cred Lines", override.aes =list(alpha=1)))
+
+p3<-ggplot(aes(x=EstimatedLoss,y=EstimatedEffectiveYield),data=
+             pd[pd$Term!=36 | pd$LoanMonthsSinceOrigination<39,])+
+  geom_point(aes(color=ProsperScore))+
+  guides(color=guide_legend(title="P.Score", override.aes =list(size=5)))+
+  ylab("Eff. Yield")
+
+p4<-ggplot(aes(x=EstimatedLoss,y=EstimatedEffectiveYield),data=
+             pd[pd$Term==36 & pd$LoanMonthsSinceOrigination>39,])+
+  geom_point(aes(color=ProsperScore))+guides(color=guide_legend(title="P.Score", 
+                                                                override.aes =list(size=5)))+
+  ylab("Eff. Yield")
+
+grid.arrange(p0,p2,p1,arrangeGrob(p3,p4,ncol=1),ncol=2)
+```
+In this figure we try to see if the number of credit lines a borrower has, has any effect on the returns the lender gets. From the histogram it is hard to tell because each credit line seems to have borrowers yielding returns at all levels (all colors). By considering the mean returns we see that there is in fact a reduction of returns based on the number of credit lines. Mean returns decrease from 0 to 7 credit lines and there after remains more or less constant till about 30 lines and then shows fluctuations. However by slicing the data based on the status of the loan we can see that the mean returns does indeed decrease based on the number of credit lines. Discounting Chargedoff loans all other categories show that there is considerable decrease in the mean returns beyond the 5 credit line bucket. 
+
+Since the Returns is linearly related to Loss and Yield (see above equation), we plot the Yield vs Loss to assess if the lower returns (for better Prosper Scores) are as a result of greater loss or lower yields or both. We notice that, surprisingly, the Yield and Loss are related in an almost linear fashion and this holds for all ProsperScore groups. This linear trend is violated only for loans with 36 month Term that have passed the 90 limit since ending the Term limit (i.e. 39 months after Term origination). 
+
+### Trends In The Variables
+```{r, Trends,echo=FALSE}
+p1<-ggplot(aes(x=ProsperScore,y=EstimatedEffectiveYield),data=pd)+
+    geom_boxplot(outlier.size = 1,alpha=1/20)+
+    stat_smooth(method = "lm", formula = y ~ poly(x,1), size = 1,aes(group=1))+
+    xlab("")+ylab("Eff. Yield")
+p2 <- ggplot(aes(x=ProsperScore,y=BorrowerAPR),data=pd)+
+    geom_boxplot(outlier.size = 1,alpha=1/20)+
+    stat_smooth(method = "lm", formula = y ~ poly(x,1), size = 1,aes(group=1))+ylab("Bo. APR")
+g<- arrangeGrob(p1,p2,ncol=1)
+
+pY<-ggplot(data = pd[pd$LoanMonthsSinceOrigination < 39,],aes(x = EstimatedLoss,y =
+                                                          EstimatedEffectiveYield,color= Term))+
+    stat_smooth(method = "lm", formula = y ~ poly(x,1), size = 1,aes(color = Term)) +
+    geom_point(aes(x = EstimatedLoss,y = EstimatedEffectiveYield,color= Term))+
+    ylab("Eff. Yield")+
+    guides(color = guide_legend(override.aes = list(alpha = 1,size = 8))) 
+  
+pB<-ggplot(data = pd[pd$LoanMonthsSinceOrigination < 39,],aes(x = EstimatedLoss,y =  
+                                                                EstimatedEffectiveYield))+
+  geom_point(aes(x = EstimatedLoss,y = EstimatedEffectiveYield,color=BorrowerAPR),size=2)+
+  scale_color_gradientn(colours = rainbow(10))+
+  ylab("Eff. Yield")+
+  guides(color = guide_colorbar(title="APR",override.aes = list(alpha = 1,size = 8)))
+
+g1<- arrangeGrob(pY,pB,ncol=1)
+grid.arrange(g,g1,pamtDelinq,pDtoIR,ncol=2)
+
+```
+
+Here we explore some of the linear trends in the data that might not be obvious at first sight. EstimatedYield and EstimatedLoss both show a linear decrease with improving ProsperScore. We see that all the three Loan Terms show that this linear trend holds. However, even within a Term period, for example the 60 month loans, we see that for the same Loss there are multiple values of returns. This could be because of the difference in  Interest rate, late fess, Service Fees or uncollected interest on charge-offs. To establish this we see that when colored by the APR the returns increase as the APR increases for a given EstimatedLoss. Thus the trend of increasing return with Borrower APR holds good for each value of Estimated Loss.  Also we see that there are trends in the DebtToIncomeRatio (based on creditRating) and the AmountDelinquent based on the number of delinquencies the borrower has had in the past 7 years.
+
+### Summary
+\begin{itemize}
+\item The discovered trends seem to reflect intuitive thinking that as the credit worthiness of the borrower improves (ProsperScore, CreditScore, CreditRating) the BorrowerRate also goes down.
+\item Both Yield and Loss (for the lender) also decrease linearly with improving credit rating. 
+\item The lender gets greater returns by lending to borrowers with mediocre and poor credit ratings (compared to people with excellent ratings) and recouping more money than is actually lent in the form of interest and fees.
+\item For a given loan status the number of creditlines a borrower seem to affect the returns yielded: the lesser the credit lines, higher the returns. When the returns are not split along loan status, this reduction of returns with increasing credit line is observed only up 7 lines of credit and then the return are more or less constant.
+\item The mean amount delinquent (log) on a loan is related to the number of delinquencies (log) in the last 7 years. The relationship is linear on the log-log scale. 
+\item Th mean DebtToIncomeRatio (log) shows a linear relationship with to the BorrowerRate. In other words, the BorrowerRate levied on a borrower is affected by the DebtToIncomeRatio of the borrower.
+\item The EstimatedLoss increases with worsening credit rating.
+\item The EstimatedLoss for each LoanStatus increases as the credit score/rating lowers. 
+\item Yield and Loss are linearly related and implies that returns and loss will also be linearly related.
+\item Most of the loans have a constant service fee of 0.01%.
+\item California takes the most loans and Wyoming has the least.
+\end{itemize}
+
+## Reflection:
+Many pieces of information together to get an idea of trends in the data and to understand some of the features playing an important role in shaping these trends.
+One aim to undertaking such an exploratory analysis of the data would be to build models that can help decide the BorrowerAPR and other terms of a loan when a new Borrower applies for a loan, given his current "feature" values. By knowing which variable have a discernible effect on the outcome, it becomes easier to make a more accurate model. As a Borrower it is useful to understand what features are most valued by the Lender so that he can position himself better to get a better rate on the loan. 
+
+The lack of a clear objective when I got the data was an impediment. Matrixplots were too dense to make sense at first and required breaking them up.  In the above analysis some conflict between dplyr and plyr (specifically the order in which they are loaded) caused some errors in compiling the KnitPDF document to be submitted. While it seemed that the linear zones in the data (Fig. 25) was based on Loan Status, it revealed that only part of the data (Fig. 26) could be explained by that kind of splitting along LoanStatus (Done vs On-Going).
+
+I went through the list of variables and their description in the excel sheet and selected variables that seemed to affect the loan data and narrow down the list of relevant variables. It would be great if the variables could be broken to k-buckets and the ggpairs package could generate $k^2$ subplots to look at the dependance of the variables (k=2 or 3 at most). I tried to break the matrix plot in to subplots and catch any interesting correlations in the subplots.  
+
+Another problem was applying varying color (i.e. colorbar instead of legend) to each bar in a histogram. It was impossible to apply a varying color (like coloring the histogram of returns by credit score). While aes(color=as.factor(CreditScoreRangeLower)) achieves the result it could not provide a good legend. This was solved by breaking the continuous variable in to buckets and coloring by buckets. 
+
+Writing the relationship between some of the crucial variables made it slightly easier to see which variables to focus on: for example, knowing that Returns and Yield were linearly related made it obvious that they would be correlated. However, knowing that Yiled and Loss have no explicit relation between them and are seemingly unrelated made the finding of linearity in the Yield vs Loss plot very interesting.
+
+Dilineating data based on Term was important to get the linear zones in many of the plots demarcated. However for Term ==36, the linear zones was not easy to demarcate. A further splitting along 'LoanMonthsSinceOrigination' deamarcated the linear and nonlinear zones of 36 month loans. Through trial and error it was found that LoanMonthsSinceOrigination ==39 was a crucial threshold that separated to regimes in the daa. The 36 month loan which had LoanMonthsSinceOrigination >=39 was the only regime  where the Lender had negative returns. 
+
 
